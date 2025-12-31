@@ -1,30 +1,28 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
+from datetime import datetime
 
-# Модель художника
 class Artist(Base):
     __tablename__ = "artists"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    country = Column(String, nullable=False)
+    country = Column(String)
     birth_year = Column(Integer)
     death_year = Column(Integer, nullable=True)
 
     artworks = relationship("Artwork", back_populates="artist")
 
-# Модель жанра
 class Genre(Base):
     __tablename__ = "genres"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    description = Column(String, nullable=True)
+    description = Column(String)
 
     artworks = relationship("Artwork", back_populates="genre")
 
-# Модель музея
 class Museum(Base):
     __tablename__ = "museums"
 
@@ -35,19 +33,20 @@ class Museum(Base):
 
     artworks = relationship("Artwork", back_populates="museum")
 
-# Модель произведения искусства
 class Artwork(Base):
     __tablename__ = "artworks"
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     year_created = Column(Integer)
-    description = Column(String, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    description = Column(String)
+    metadata_json = Column(JSON)
 
     artist_id = Column(Integer, ForeignKey("artists.id"))
     genre_id = Column(Integer, ForeignKey("genres.id"))
     museum_id = Column(Integer, ForeignKey("museums.id"))
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     artist = relationship("Artist", back_populates="artworks")
     genre = relationship("Genre", back_populates="artworks")
