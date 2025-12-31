@@ -3,7 +3,7 @@ from sqlalchemy import and_, func, text
 from app import models, schemas
 
 
-# ---------------- ARTIST ----------------
+#  ARTIST ----------------
 def create_artist(db: Session, artist: schemas.ArtistCreate):
     db_artist = models.Artist(**artist.dict())
     db.add(db_artist)
@@ -14,7 +14,7 @@ def create_artist(db: Session, artist: schemas.ArtistCreate):
 def get_artists(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Artist).offset(skip).limit(limit).all()
 
-# ---------------- GENRE ----------------
+#  GENRE ----------------
 def create_genre(db: Session, genre: schemas.GenreCreate):
     db_genre = models.Genre(**genre.dict())
     db.add(db_genre)
@@ -25,7 +25,7 @@ def create_genre(db: Session, genre: schemas.GenreCreate):
 def get_genres(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Genre).offset(skip).limit(limit).all()
 
-# ---------------- MUSEUM ----------------
+#  MUSEUM ----------------
 def create_museum(db: Session, museum: schemas.MuseumCreate):
     db_museum = models.Museum(**museum.dict())
     db.add(db_museum)
@@ -36,7 +36,7 @@ def create_museum(db: Session, museum: schemas.MuseumCreate):
 def get_museums(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Museum).offset(skip).limit(limit).all()
 
-# ---------------- ARTWORK ----------------
+#  ARTWORK ----------------
 def create_artwork(db: Session, artwork: schemas.ArtworkCreate):
     db_artwork = models.Artwork(**artwork.dict())
     db.add(db_artwork)
@@ -47,7 +47,7 @@ def create_artwork(db: Session, artwork: schemas.ArtworkCreate):
 def get_artworks(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Artwork).offset(skip).limit(limit).all()
 
-# ========== СЛОЖНЫЕ ЗАПРОСЫ ==========
+#  СЛОЖНЫЕ ЗАПРОСЫ 
 def get_artworks_filtered(
     db: Session,
     skip: int = 0,
@@ -169,10 +169,7 @@ def search_artworks_by_metadata(
     limit: int = 100
 ):
     """
-    Полнотекстовый поиск по JSON полю metadata_json
-    Использует регулярные выражения PostgreSQL (оператор ~)
-    Работает с созданным GIN индексом ix_artworks_metadata_json_gin
-    
+    Поиск по JSON полю metadata_json с использованием регулярного выражения
     pattern: регулярное выражение для поиска
     Примеры:
     - 'oil' - ищет слово 'oil' в любом месте JSON
@@ -180,12 +177,6 @@ def search_artworks_by_metadata(
     - '.*true.*' - ищет булево значение true
     """
     
-    # ВАЖНО: Используем text() для raw SQL запроса
-    # Оператор ~ в PostgreSQL означает "соответствует регулярному выражению"
-    # ILIKE - регистронезависимый поиск, но не использует GIN индекс
-    # Мы используем ~ для работы с GIN индексом
-    
-    # Вариант 1: Простой поиск (регистрозависимый)
     query = text("""
         SELECT * 
         FROM artworks 
@@ -195,24 +186,12 @@ def search_artworks_by_metadata(
         OFFSET :offset
     """)
     
-    # Вариант 2: Регистронезависимый поиск (если нужно)
-    # query = text("""
-    #     SELECT * 
-    #     FROM artworks 
-    #     WHERE metadata_json::text ~* :pattern
-    #     ORDER BY id
-    #     LIMIT :limit 
-    #     OFFSET :offset
-    # """)
-    
-    # Выполняем запрос с параметрами
     result = db.execute(query, {
         "pattern": pattern,
         "limit": limit,
         "offset": skip
     })
     
-    # Преобразуем результат в список словарей
     artworks = []
     for row in result:
         # row - это Row объект, преобразуем в dict
