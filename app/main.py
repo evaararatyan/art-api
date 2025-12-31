@@ -48,18 +48,68 @@ def list_museums(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
 def add_artwork(artwork: schemas.ArtworkCreate, db: Session = Depends(get_db)):
     return crud.create_artwork(db, artwork)
 
-@app.get("/artworks/", response_model=List[schemas.Artwork])
+@app.get("/artworks/", response_model=schemas.PaginatedResponse)
 def list_artworks(
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, description="Номер страницы (начинается с 1)", ge=1),
+    size: int = Query(10, description="Количество записей на странице", ge=1, le=100),
     sort_by: str = Query("id", description="Поле для сортировки: id, year, title, created_at"),
     sort_order: str = Query("asc", description="Направление: asc или desc"),
     db: Session = Depends(get_db)
 ):
-    return crud.get_artworks_sorted(
-        db, skip=skip, limit=limit,
-        sort_by=sort_by, sort_order=sort_order
-    )
+    """
+    📄 Получить список произведений с пагинацией и сортировкой
+    """
+    # Рассчитываем offset для пагинации
+    offset = (page - 1) * size
+    
+    # Получаем отсортированные данные с учетом пагинации
+    if sort_by == "year":
+        order_field = models.Artwork.year_created
+    elif sort_by == "title":
+        order_field = models.Artwork.title
+    elif sort_by == "created_at":
+        order_field = models.Artwork.created_at
+    else:
+        order_field = models.Artwork.id
+    
+    if sort_order.lower() == "desc":
+        order_field = order_field.desc()
+    else:
+        order_field = order_field.asc()
+    
+    # Получаем данные для текущей страницы
+    artworks = db.query(models.Artwork).order_by(order_field).offset(offset).limit(size).all()
+    
+    # Получаем общее количество записей
+    total = db.query(models.Artwork).count()
+    
+    # Рассчитываем общее количество страниц
+    total_pages = (total + size - 1) // size
+    
+    # Проверяем наличие следующей и предыдущей страницы
+    has_next = page < total_pages
+    has_prev = page > 1
+    
+    return {
+        "total": total,
+        "page": page,
+        "size": size,
+        "total_pages": total_pages,
+        "has_next": has_next,
+        "has_prev": has_prev,
+        "data": artworks
+    }
+
+@app.get("/artworks/paginated/", response_model=schemas.PaginatedResponse)
+def get_paginated_artworks(
+    page: int = Query(1, description="Номер страницы (начинается с 1)", ge=1),
+    size: int = Query(10, description="Количество записей на странице", ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    📄 Получить произведения с пагинацией
+    """
+    return crud.get_artworks_paginated(db, page=page, size=size)
 
 # ========== СЛОЖНЫЕ ЗАПРОСЫ ==========
 @app.get("/artworks/filter/", response_model=List[schemas.Artwork])
@@ -103,8 +153,8 @@ def apply_discount_to_expensive(
 def get_stats_by_country(db: Session = Depends(get_db)):
     return crud.get_stats_by_country(db)
 
-
-@app.get("/artworks/search/metadata/", response_model=list[schemas.Artwork])
+# ========== ПОЛНОТЕКСТОВЫЙ ПОИСК ПО JSON (ПУНКТ 6) ==========
+@app.get("/artworks/search/metadata/", response_model=schemas.PaginatedResponse)
 def search_in_metadata(
     pattern: str = Query(..., description="""Регулярное выражение для поиска в JSON поле metadata_json.
     
@@ -114,59 +164,74 @@ def search_in_metadata(
     - '.*true.*' - найдет произведения, где есть булево значение true
     - 'watercolor|acrylic' - найдет произведения с техникой watercolor ИЛИ acrylic
     """),
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, description="Номер страницы", ge=1),
+    size: int = Query(10, description="Количество на странице", ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """
-    🔍 Полнотекстовый поиск по JSON полю metadata_json
-    
-    Использует регулярные выражения PostgreSQL (оператор ~) и работает 
-    с созданным GIN индексом для ускорения поиска.
-    
-    📌 Примеры запросов:
-    - GET /artworks/search/metadata/?pattern=oil
-    - GET /artworks/search/metadata/?pattern=.*1000000.*
-    - GET /artworks/search/metadata/?pattern=watercolor|acrylic
+    🔍 Поиск по JSON полю с пагинацией
     """
     try:
-        # Проверяем, что pattern не пустой
         if not pattern or pattern.strip() == "":
             raise HTTPException(
                 status_code=400, 
-                detail="Pattern cannot be empty. Please provide a search pattern."
+                detail="Pattern cannot be empty"
             )
         
-        # Вызываем функцию поиска
-        results = crud.search_artworks_by_metadata(
-            db, 
-            pattern=pattern.strip(),
-            skip=skip, 
-            limit=limit
-        )
+        # Рассчитываем offset
+        offset = (page - 1) * size
         
-        # Если ничего не найдено
-        if not results:
-            return []
+        # Используем raw SQL для поиска
+        from sqlalchemy import text
+        query = text("""
+            SELECT * FROM artworks 
+            WHERE metadata_json::text ~ :pattern
+            ORDER BY id
+            LIMIT :limit OFFSET :offset
+        """)
         
-        # Преобразуем словари в объекты Artwork для Pydantic
-        # Это нужно, потому что наша функция возвращает словари, а не объекты SQLAlchemy
+        result = db.execute(query, {
+            "pattern": pattern.strip(),
+            "limit": size,
+            "offset": offset
+        })
+        
+        # Получаем данные
+        artworks_data = [dict(row) for row in result]
+        
+        # Получаем ОБЩЕЕ количество найденных записей (без пагинации)
+        count_query = text("""
+            SELECT COUNT(*) FROM artworks 
+            WHERE metadata_json::text ~ :pattern
+        """)
+        
+        total_result = db.execute(count_query, {"pattern": pattern.strip()})
+        total = total_result.scalar()  # Получаем число
+        
+        # Рассчитываем страницы
+        total_pages = (total + size - 1) // size if total > 0 else 0
+        has_next = page < total_pages
+        has_prev = page > 1
+        
+        # Преобразуем словари в объекты Artwork
         from app import models
-        
-        artwork_objects = []
-        for item in results:
-            # Создаем объект Artwork из словаря
+        artworks = []
+        for item in artworks_data:
             artwork = models.Artwork(**item)
-            artwork_objects.append(artwork)
+            artworks.append(artwork)
         
-        return artwork_objects
+        return {
+            "total": total,
+            "page": page,
+            "size": size,
+            "total_pages": total_pages,
+            "has_next": has_next,
+            "has_prev": has_prev,
+            "data": artworks
+        }
         
     except Exception as e:
-        # Логируем ошибку для отладки
-        import traceback
         print(f"Search error: {e}")
-        print(traceback.format_exc())
-        
         raise HTTPException(
             status_code=500, 
             detail=f"Search failed: {str(e)}"

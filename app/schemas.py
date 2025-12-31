@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import datetime
 
 class ArtistBase(BaseModel):
@@ -76,6 +76,21 @@ class StatsByCountry(BaseModel):
     country: str
     artwork_count: int
     avg_year: Optional[float]
+    
+    class Config:
+        from_attributes = True
+
+class PaginatedResponse(BaseModel):
+    """
+    схема для пагинированного ответа
+    """
+    total: int              # Общее количество записей
+    page: int               # Текущая страница
+    size: int               # Количество записей на странице
+    total_pages: int        # Общее количество страниц
+    has_next: bool          # Есть ли следующая страница
+    has_prev: bool          # Есть ли предыдущая страница
+    data: List[Artwork]     # Сами данные
     
     class Config:
         from_attributes = True

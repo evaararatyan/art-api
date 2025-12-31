@@ -220,3 +220,35 @@ def search_artworks_by_metadata(
         artworks.append(artwork_dict)
     
     return artworks
+
+def get_artworks_paginated(db: Session, page: int = 1, size: int = 10):
+    """
+    Получить произведения с пагинацией
+    page: номер страницы с 1
+    size: количество записей на странице
+    """
+    # сколько записей пропустить
+    offset = (page - 1) * size
+    
+    # Получim данные для текущей страницы
+    artworks = db.query(models.Artwork).offset(offset).limit(size).all()
+    
+    # Получаем общее количество записей
+    total = db.query(models.Artwork).count()
+    
+    # Рассчитываем общее количество страниц
+    total_pages = (total + size - 1) // size  # Округление вверх
+    
+    # Проверяем наличие следующей и предыдущей страницы
+    has_next = page < total_pages
+    has_prev = page > 1
+    
+    return {
+        "total": total,
+        "page": page,
+        "size": size,
+        "total_pages": total_pages,
+        "has_next": has_next,
+        "has_prev": has_prev,
+        "data": artworks
+    }
