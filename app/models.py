@@ -41,12 +41,11 @@ class Artwork(Base):
     year_created = Column(Integer)
     description = Column(String)
     metadata_json = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     artist_id = Column(Integer, ForeignKey("artists.id"))
     genre_id = Column(Integer, ForeignKey("genres.id"))
     museum_id = Column(Integer, ForeignKey("museums.id"))
-
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     artist = relationship("Artist", back_populates="artworks")
     genre = relationship("Genre", back_populates="artworks")

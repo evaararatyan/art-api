@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
 from app import models, schemas
 
 # ---------------- ARTIST ----------------
@@ -44,3 +45,118 @@ def create_artwork(db: Session, artwork: schemas.ArtworkCreate):
 
 def get_artworks(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Artwork).offset(skip).limit(limit).all()
+
+# ========== СЛОЖНЫЕ ЗАПРОСЫ ==========
+def get_artworks_filtered(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    min_year: int = None,
+    max_year: int = None,
+    artist_id: int = None,
+    museum_id: int = None,
+    genre_id: int = None
+):
+    """SELECT ... WHERE с несколькими условиями"""
+    query = db.query(models.Artwork)
+    
+    filters = []
+    if min_year:
+        filters.append(models.Artwork.year_created >= min_year)
+    if max_year:
+        filters.append(models.Artwork.year_created <= max_year)
+    if artist_id:
+        filters.append(models.Artwork.artist_id == artist_id)
+    if museum_id:
+        filters.append(models.Artwork.museum_id == museum_id)
+    if genre_id:
+        filters.append(models.Artwork.genre_id == genre_id)
+    
+    if filters:
+        query = query.filter(and_(*filters))
+    
+    return query.offset(skip).limit(limit).all()
+
+def get_artworks_with_details(db: Session, skip: int = 0, limit: int = 100):
+    """JOIN: Получить artworks с информацией о художнике, жанре и музее"""
+    results = db.query(
+        models.Artwork,
+        models.Artist.name.label("artist_name"),
+        models.Genre.name.label("genre_name"),
+        models.Museum.name.label("museum_name"),
+        models.Museum.country.label("museum_country")
+    ).join(
+        models.Artist, models.Artwork.artist_id == models.Artist.id
+    ).join(
+        models.Genre, models.Artwork.genre_id == models.Genre.id
+    ).join(
+        models.Museum, models.Artwork.museum_id == models.Museum.id
+    ).offset(skip).limit(limit).all()
+    
+    artworks = []
+    for artwork, artist_name, genre_name, museum_name, museum_country in results:
+        artwork_dict = {
+            "id": artwork.id,
+            "title": artwork.title,
+            "year_created": artwork.year_created,
+            "description": artwork.description,
+            "artist_name": artist_name,
+            "genre_name": genre_name,
+            "museum_name": museum_name,
+            "museum_country": museum_country
+        }
+        artworks.append(artwork_dict)
+    
+    return artworks
+
+def update_expensive_artworks_discount(db: Session, discount_percent: float = 10.0):
+    """UPDATE с нетривиальным условием: скидка на дорогие произведения"""
+    artworks = db.query(models.Artwork).all()
+    updated = 0
+    
+    for artwork in artworks:
+        if (artwork.metadata_json and 
+            'estimated_value_usd' in artwork.metadata_json):
+            value = artwork.metadata_json['estimated_value_usd']
+            if isinstance(value, (int, float)) and value > 1000000:
+                new_value = value * (1 - discount_percent/100)
+                artwork.metadata_json['estimated_value_usd'] = new_value
+                artwork.metadata_json['has_discount'] = True
+                artwork.metadata_json['discount_percent'] = discount_percent
+                updated += 1
+    
+    if updated > 0:
+        db.commit()
+    return updated
+
+def get_stats_by_country(db: Session):
+    """GROUP BY: Статистика произведений по странам музеев"""
+    stats = db.query(
+        models.Museum.country,
+        func.count(models.Artwork.id).label("artwork_count"),
+        func.avg(models.Artwork.year_created).label("avg_year")
+    ).join(
+        models.Artwork, models.Museum.id == models.Artwork.museum_id
+    ).group_by(
+        models.Museum.country
+    ).all()
+    
+    return [{"country": s[0], "artwork_count": s[1], "avg_year": float(s[2]) if s[2] else None} for s in stats]
+
+def get_artworks_sorted(db: Session, skip: int = 0, limit: int = 100, sort_by: str = "id", sort_order: str = "asc"):
+    """Получить произведения с сортировкой"""
+    if sort_by == "year":
+        order_field = models.Artwork.year_created
+    elif sort_by == "title":
+        order_field = models.Artwork.title
+    elif sort_by == "created_at":
+        order_field = models.Artwork.created_at
+    else:
+        order_field = models.Artwork.id
+    
+    if sort_order.lower() == "desc":
+        order_field = order_field.desc()
+    else:
+        order_field = order_field.asc()
+    
+    return db.query(models.Artwork).order_by(order_field).offset(skip).limit(limit).all()

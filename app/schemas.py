@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, Dict
+from datetime import datetime
 
-# ---------------- ARTIST ----------------
 class ArtistBase(BaseModel):
     name: str
     country: Optional[str] = None
@@ -14,9 +14,8 @@ class ArtistCreate(ArtistBase):
 class Artist(ArtistBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# ---------------- GENRE ----------------
 class GenreBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -27,9 +26,8 @@ class GenreCreate(GenreBase):
 class Genre(GenreBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# ---------------- MUSEUM ----------------
 class MuseumBase(BaseModel):
     name: str
     city: Optional[str] = None
@@ -41,9 +39,8 @@ class MuseumCreate(MuseumBase):
 class Museum(MuseumBase):
     id: int
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# ---------------- ARTWORK ----------------
 class ArtworkBase(BaseModel):
     title: str
     artist_id: int
@@ -58,5 +55,27 @@ class ArtworkCreate(ArtworkBase):
 
 class Artwork(ArtworkBase):
     id: int
+    created_at: Optional[datetime] = None
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class ArtworkWithDetails(BaseModel):
+    id: int
+    title: str
+    year_created: Optional[int]
+    description: Optional[str]
+    artist_name: str
+    genre_name: str
+    museum_name: str
+    museum_country: str
+    
+    class Config:
+        from_attributes = True
+
+class StatsByCountry(BaseModel):
+    country: str
+    artwork_count: int
+    avg_year: Optional[float]
+    
+    class Config:
+        from_attributes = True
