@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Query
+from fastapi import FastAPI, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app import models, crud, schemas
@@ -102,3 +102,72 @@ def apply_discount_to_expensive(
 @app.get("/stats/by-country/", response_model=List[schemas.StatsByCountry])
 def get_stats_by_country(db: Session = Depends(get_db)):
     return crud.get_stats_by_country(db)
+
+
+@app.get("/artworks/search/metadata/", response_model=list[schemas.Artwork])
+def search_in_metadata(
+    pattern: str = Query(..., description="""Регулярное выражение для поиска в JSON поле metadata_json.
+    
+    Примеры:
+    - 'oil' - найдет все произведения, где в metadata_json есть слово 'oil'
+    - '.*1000000.*' - найдет произведения с оценкой 1000000
+    - '.*true.*' - найдет произведения, где есть булево значение true
+    - 'watercolor|acrylic' - найдет произведения с техникой watercolor ИЛИ acrylic
+    """),
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    🔍 Полнотекстовый поиск по JSON полю metadata_json
+    
+    Использует регулярные выражения PostgreSQL (оператор ~) и работает 
+    с созданным GIN индексом для ускорения поиска.
+    
+    📌 Примеры запросов:
+    - GET /artworks/search/metadata/?pattern=oil
+    - GET /artworks/search/metadata/?pattern=.*1000000.*
+    - GET /artworks/search/metadata/?pattern=watercolor|acrylic
+    """
+    try:
+        # Проверяем, что pattern не пустой
+        if not pattern or pattern.strip() == "":
+            raise HTTPException(
+                status_code=400, 
+                detail="Pattern cannot be empty. Please provide a search pattern."
+            )
+        
+        # Вызываем функцию поиска
+        results = crud.search_artworks_by_metadata(
+            db, 
+            pattern=pattern.strip(),
+            skip=skip, 
+            limit=limit
+        )
+        
+        # Если ничего не найдено
+        if not results:
+            return []
+        
+        # Преобразуем словари в объекты Artwork для Pydantic
+        # Это нужно, потому что наша функция возвращает словари, а не объекты SQLAlchemy
+        from app import models
+        
+        artwork_objects = []
+        for item in results:
+            # Создаем объект Artwork из словаря
+            artwork = models.Artwork(**item)
+            artwork_objects.append(artwork)
+        
+        return artwork_objects
+        
+    except Exception as e:
+        # Логируем ошибку для отладки
+        import traceback
+        print(f"Search error: {e}")
+        print(traceback.format_exc())
+        
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Search failed: {str(e)}"
+        )

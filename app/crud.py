@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, text
 from app import models, schemas
+
 
 # ---------------- ARTIST ----------------
 def create_artist(db: Session, artist: schemas.ArtistCreate):
@@ -160,3 +161,62 @@ def get_artworks_sorted(db: Session, skip: int = 0, limit: int = 100, sort_by: s
         order_field = order_field.asc()
     
     return db.query(models.Artwork).order_by(order_field).offset(skip).limit(limit).all()
+
+def search_artworks_by_metadata(
+    db: Session, 
+    pattern: str, 
+    skip: int = 0, 
+    limit: int = 100
+):
+    """
+    Полнотекстовый поиск по JSON полю metadata_json
+    Использует регулярные выражения PostgreSQL (оператор ~)
+    Работает с созданным GIN индексом ix_artworks_metadata_json_gin
+    
+    pattern: регулярное выражение для поиска
+    Примеры:
+    - 'oil' - ищет слово 'oil' в любом месте JSON
+    - '.*1000000.*' - ищет число 1000000
+    - '.*true.*' - ищет булево значение true
+    """
+    
+    # ВАЖНО: Используем text() для raw SQL запроса
+    # Оператор ~ в PostgreSQL означает "соответствует регулярному выражению"
+    # ILIKE - регистронезависимый поиск, но не использует GIN индекс
+    # Мы используем ~ для работы с GIN индексом
+    
+    # Вариант 1: Простой поиск (регистрозависимый)
+    query = text("""
+        SELECT * 
+        FROM artworks 
+        WHERE metadata_json::text ~ :pattern
+        ORDER BY id
+        LIMIT :limit 
+        OFFSET :offset
+    """)
+    
+    # Вариант 2: Регистронезависимый поиск (если нужно)
+    # query = text("""
+    #     SELECT * 
+    #     FROM artworks 
+    #     WHERE metadata_json::text ~* :pattern
+    #     ORDER BY id
+    #     LIMIT :limit 
+    #     OFFSET :offset
+    # """)
+    
+    # Выполняем запрос с параметрами
+    result = db.execute(query, {
+        "pattern": pattern,
+        "limit": limit,
+        "offset": skip
+    })
+    
+    # Преобразуем результат в список словарей
+    artworks = []
+    for row in result:
+        # row - это Row объект, преобразуем в dict
+        artwork_dict = dict(row._mapping)  # Используем _mapping для Python 3.11+
+        artworks.append(artwork_dict)
+    
+    return artworks
