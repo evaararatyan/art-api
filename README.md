@@ -1,85 +1,118 @@
-# 🎨 Art API
+# Art API — RESTful Service for Artwork and Museum Management
 
-REST API для управления произведениями искусства, художниками, музеями и жанрами. Проект выполнен в рамках учебного задания с использованием FastAPI, SQLAlchemy и PostgreSQL.
+A RESTful web API for managing artworks, artists, museums, and genres built with FastAPI, SQLAlchemy, and PostgreSQL. The project covers relational database design, data initialization pipelines, migrations, specialized querying, and pagination.
 
-## 🏆 Выполненные требования проекта
+---
 
-|-------|-------|--------|
-| 1. Скрипт инициализации БД 
-| 2. Базовый CRUD
-| 3. Заполнение БД через API 
-| 4. 2 миграции данных
-| 5. 5 сложных запросов 
-| 6. JSON поле + GIN индекс + поиск 
-| 7. Пагинация 
+## Project Requirements Checklist
 
-## 🚀 Технологии
+| Requirement | Description | Status |
+|---|---|---|
+| Database Initialization Script | SQL script for initial schema creation and setup (`init_db.sql`) | Completed |
+| Base CRUD Operations | Core CRUD endpoints for all primary entities | Completed |
+| Data Seeding API | Automated data population pipeline via API (`seed_data.py`) | Completed |
+| Database Migrations | Schema evolution tracked via Alembic (2 migrations) | Completed |
+| Complex SQL Queries | Advanced relational queries (aggregations, joins, filtering) | Completed |
+| Full-Text / JSON Indexing | JSON field implementation, GIN indexing, and optimized search | Completed |
+| Pagination | Limit/offset pagination for dataset endpoints | Completed |
 
-- **FastAPI** - современный веб-фреймворк
-- **SQLAlchemy** - ORM для работы с БД
-- **PostgreSQL** - реляционная база данных
-- **Alembic** - система миграций базы данных
-- **Pydantic** - валидация данных
-- **Uvicorn** - ASGI сервер
+---
 
-## 📁 Структура проекта
+## Tech Stack
+
+- **Framework:** FastAPI
+- **ORM:** SQLAlchemy
+- **Database:** PostgreSQL
+- **Database Migrations:** Alembic
+- **Data Validation & Serialization:** Pydantic
+- **ASGI Server:** Uvicorn
+
+---
+
+## Project Structure
+
+```text
 art-api/
 ├── app/
-│ ├── init.py
-│ ├── main.py # Основное приложение FastAPI
-│ ├── database.py # Подключение к БД
-│ ├── models.py # SQLAlchemy модели
-│ ├── schemas.py # Pydantic схемы
-│ └── crud.py # CRUD операции
+│   ├── __init__.py
+│   ├── main.py        # FastAPI application entry point
+│   ├── database.py    # Database connection and session management
+│   ├── models.py      # SQLAlchemy ORM models
+│   ├── schemas.py     # Pydantic validation schemas
+│   └── crud.py        # Database operations and query logic
 ├── alembic/
-│ ├── versions/ # Миграции базы данных
-│ └── env.py # Конфигурация Alembic
+│   ├── versions/      # Database migration scripts
+│   └── env.py         # Alembic configuration
 ├── scripts/
-│ ├── init_db.sql # Скрипт инициализации БД
-│ └── seed_data.py # Скрипт заполнения БД
-├── requirements.txt # Зависимости Python
-├── .gitignore # Игнорируемые файлы
-└── README.md # Документация
+│   ├── init_db.sql    # Raw SQL database initialization script
+│   └── seed_data.py   # Automated data seeding script
+├── requirements.txt   # Python project dependencies
+├── .gitignore         # Git ignore rules
+└── README.md          # Project documentation
 
 
 
-## ⚡ Быстрый старт
+Features & Implementation Details
+Database Initialization & Migration
+The application uses PostgreSQL as its primary database store. Initial schema creation is defined in scripts/init_db.sql. Subsequent schema alterations and updates are versioned and applied using Alembic.
 
-### 1. Клонирование и настройка
+Advanced Querying & Performance
+Complex Queries: The API implements specialized queries for multi-table joins, grouped aggregations, and filtered views across artworks, museums, and artists.
 
-```bash
-# Клонировать репозиторий
+JSON Field & GIN Index: Artwork metadata and flexible attributes are stored in a JSONB column, indexed using a GIN (Generalized Inverted Index) to optimize full-text and key-value search operations.
+
+Pagination: Collection endpoints feature pagination to control payload sizes and optimize response times.
+
+Setup and Installation
+1. Repository Setup
+Clone the repository and navigate to the project root:
+
+Bash
 git clone <repository-url>
 cd art-api
+Create and activate a virtual environment:
 
-# Создать виртуальное окружение (Windows)
+Bash
+# Windows
 python -m venv venv
 venv\Scripts\activate
 
-# Установить зависимости
+# Linux / macOS
+python3 -m venv venv
+source venv/bin/activate
+Install dependencies:
+
+Bash
 pip install -r requirements.txt
+2. Database Configuration
+Create the PostgreSQL database and execute the initialization script:
 
-2. Настройка базы данных PostgreSQL
-bash
-# Создать базу данных и пользователя
+Bash
 psql -U postgres -f scripts/init_db.sql
-3. Настройка Alembic и миграции
-bash
-# Применить миграции
+3. Database Migrations
+Apply database migrations using Alembic to bring the schema up to date:
+
+Bash
 alembic upgrade head
-4. Заполнение базы данных
-bash
-# Запустить сервер (в одном терминале)
-uvicorn app.main:app --reload
+4. Data Seeding
+Start the application server in one terminal window:
 
-# В другом терминале заполнить БД
+Bash
+uvicorn app.main:app --reload
+In a separate terminal window, populate the database with sample data:
+
+Bash
 python scripts/seed_data.py
-5. Запуск приложения
-bash
-uvicorn app.main:app --reload
-Приложение будет доступно по адресу: http://localhost:8000
+Application Execution
+To run the API server locally:
 
-📚 Документация API
+Bash
+uvicorn app.main:app --reload
+The application will be accessible at http://localhost:8000.
+
+API Documentation
+Interactive API documentation is automatically generated and accessible via:
+
 Swagger UI: http://localhost:8000/docs
 
 ReDoc: http://localhost:8000/redoc
