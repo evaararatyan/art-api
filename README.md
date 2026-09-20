@@ -49,30 +49,31 @@ art-api/
 ├── requirements.txt   # Python project dependencies
 ├── .gitignore         # Git ignore rules
 └── README.md          # Project documentation
+```
 
 
-
-Features & Implementation Details
-Database Initialization & Migration
+## Features & Implementation Details
+### Database Initialization & Migration
 The application uses PostgreSQL as its primary database store. Initial schema creation is defined in scripts/init_db.sql. Subsequent schema alterations and updates are versioned and applied using Alembic.
 
-Advanced Querying & Performance
-Complex Queries: The API implements specialized queries for multi-table joins, grouped aggregations, and filtered views across artworks, museums, and artists.
+### Advanced Querying & Performance
+1. Complex Queries: The API implements specialized queries for multi-table joins, grouped aggregations, and filtered views across artworks, museums, and artists.
 
-JSON Field & GIN Index: Artwork metadata and flexible attributes are stored in a JSONB column, indexed using a GIN (Generalized Inverted Index) to optimize full-text and key-value search operations.
+2. JSON Field & GIN Index: Artwork metadata and flexible attributes are stored in a JSONB column, indexed using a GIN (Generalized Inverted Index) to optimize full-text and key-value search operations.
 
-Pagination: Collection endpoints feature pagination to control payload sizes and optimize response times.
+3. Pagination: Collection endpoints feature pagination to control payload sizes and optimize response times.
 
-Setup and Installation
+
+## Setup and Installation
 1. Repository Setup
 Clone the repository and navigate to the project root:
-
-Bash
+```
 git clone <repository-url>
 cd art-api
+```
 Create and activate a virtual environment:
 
-Bash
+```
 # Windows
 python -m venv venv
 venv\Scripts\activate
@@ -80,39 +81,52 @@ venv\Scripts\activate
 # Linux / macOS
 python3 -m venv venv
 source venv/bin/activate
+```
 Install dependencies:
 
-Bash
+```
 pip install -r requirements.txt
-2. Database Configuration
+```
+
+### 2. Database Configuration
 Create the PostgreSQL database and execute the initialization script:
 
-Bash
+```
 psql -U postgres -f scripts/init_db.sql
-3. Database Migrations
+```
+
+### 3. Database Migrations
 Apply database migrations using Alembic to bring the schema up to date:
 
-Bash
+```
 alembic upgrade head
+```
+
 4. Data Seeding
 Start the application server in one terminal window:
 
-Bash
+```
 uvicorn app.main:app --reload
+```
 In a separate terminal window, populate the database with sample data:
 
-Bash
-python scripts/seed_data.py
-Application Execution
-To run the API server locally:
 
-Bash
+```
+python scripts/seed_data.py
+```
+
+## Application Execution
+To run the API server locally:
+```
 uvicorn app.main:app --reload
+```
 The application will be accessible at http://localhost:8000.
 
-API Documentation
+
+
+## API Documentation
 Interactive API documentation is automatically generated and accessible via:
 
-Swagger UI: http://localhost:8000/docs
+* Swagger UI: http://localhost:8000/docs
 
-ReDoc: http://localhost:8000/redoc
+- ReDoc: http://localhost:8000/redoc
